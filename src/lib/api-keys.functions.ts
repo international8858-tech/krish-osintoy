@@ -114,7 +114,9 @@ export const updateApiKey = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => addCreditsSchema.parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const patch: Record<string, unknown> = { credits_total: data.credits_total };
+    const patch: { credits_total: number | null; expires_at?: string } = {
+      credits_total: data.credits_total,
+    };
     if (data.extend_days) {
       const { data: row } = await supabaseAdmin
         .from("api_keys").select("expires_at").eq("id", data.id).single();
