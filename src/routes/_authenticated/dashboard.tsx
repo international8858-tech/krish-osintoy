@@ -51,7 +51,8 @@ function Dashboard() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["api_keys"] });
 
   const createMut = useMutation({
-    mutationFn: (d: Parameters<typeof create>[0]["data"]) => create({ data: d }),
+    mutationFn: (d: { name: string; services: string[]; credits_total: number | null; days: number | null; notes?: string }) =>
+      create({ data: d }),
     onSuccess: () => { toast.success("API key created"); refresh(); setShowCreate(false); },
     onError: (e: Error) => toast.error(e.message),
   });
