@@ -129,16 +129,17 @@ export const updateApiKey = createServerFn({ method: "POST" })
   });
 
 // Public — fetch by slug for the customer panel (no auth required).
+// The slug is a 48-char unguessable token, so we can safely return the
+// customer's own API key here so they can test inline in their dashboard.
 export const getKeyBySlug = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => z.object({ slug: z.string().min(10).max(100) }).parse(input))
   .handler(async ({ data }) => {
     const { data: row, error } = await supabaseAdmin
       .from("api_keys")
-      .select("id, name, public_slug, services, credits_total, credits_used, expires_at, is_active, created_at")
+      .select("id, name, api_key, public_slug, services, credits_total, credits_used, expires_at, is_active, created_at")
       .eq("public_slug", data.slug)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!row) return { key: null };
-    // Never expose api_key here — customer already has it.
     return { key: row };
   });

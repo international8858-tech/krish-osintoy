@@ -1,15 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { getKeyBySlug } from "@/lib/api-keys.functions";
-import { SERVICE_MAP } from "@/lib/services";
-import { Copy, Check, Loader2, Activity, Clock, Database, Shield } from "lucide-react";
+import { SERVICE_MAP, CATEGORIES, type ServiceDef } from "@/lib/services";
+import {
+  Copy, Check, Loader2, Activity, Clock, Database, Shield, Eye, EyeOff,
+  Play, Code2, Terminal, Globe, AlertTriangle, KeyRound,
+} from "lucide-react";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PublicPanel,
-  head: () => ({ meta: [{ title: "API Panel" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "API Documentation" }, { name: "robots", content: "noindex" }] }),
 });
+
+type KeyRow = {
+  id: string; name: string; api_key: string; public_slug: string;
+  services: string[]; credits_total: number | null; credits_used: number;
+  expires_at: string | null; is_active: boolean; created_at: string;
+};
 
 function PublicPanel() {
   const { slug } = Route.useParams();
@@ -17,7 +26,7 @@ function PublicPanel() {
   const { data, isLoading } = useQuery({
     queryKey: ["pub", slug],
     queryFn: () => fetcher({ data: { slug } }),
-    refetchInterval: 15000,
+    refetchInterval: 20000,
   });
 
   const [origin, setOrigin] = useState("");
@@ -30,7 +39,6 @@ function PublicPanel() {
       </div>
     );
   }
-
   if (!data?.key) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
@@ -43,8 +51,10 @@ function PublicPanel() {
       </div>
     );
   }
+  return <Panel k={data.key as KeyRow} origin={origin} />;
+}
 
-  const k = data.key;
+function Panel({ k, origin }: { k: KeyRow; origin: string }) {
   const expired = k.expires_at && new Date(k.expires_at) < new Date();
   const active = k.is_active && !expired;
   const creditsLeft = k.credits_total === null ? null : Math.max(0, k.credits_total - k.credits_used);
@@ -52,121 +62,226 @@ function PublicPanel() {
     ? Math.max(0, Math.ceil((new Date(k.expires_at).getTime() - Date.now()) / 86400000))
     : null;
 
+  const grouped = useMemo(() => {
+    const m: Record<string, ServiceDef[]> = {};
+    for (const s of k.services) {
+      const d = SERVICE_MAP[s]; if (!d) continue;
+      (m[d.category] ||= []).push(d);
+    }
+    return m;
+  }, [k.services]);
+
+  const orderedCats = CATEGORIES.filter((c) => grouped[c]?.length);
+  const base = origin || "https://your-domain";
+
   return (
     <div className="min-h-screen grid-bg">
-      <header className="border-b border-border/40 backdrop-blur-sm sticky top-0 z-10 bg-background/70">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-mono font-bold">
+      <header className="border-b border-border/40 backdrop-blur-sm sticky top-0 z-20 bg-background/80">
+        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2 font-mono font-bold text-sm">
             <span className="size-2 rounded-full bg-primary glow" />
-            <span>OSINT_PANEL</span>
+            <span>API_DOCS</span>
+            <span className="text-muted-foreground font-normal hidden sm:inline">· {k.name}</span>
           </div>
-          <span className={`text-[11px] font-mono px-2 py-1 rounded-full ${
-            active ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"
-          }`}>
-            {expired ? "EXPIRED" : k.is_active ? "● ACTIVE" : "DISABLED"}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-mono px-2 py-1 rounded-full ${
+              active ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"
+            }`}>{expired ? "EXPIRED" : k.is_active ? "● ACTIVE" : "DISABLED"}</span>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-10">
-        {/* Identity */}
-        <div className="mb-8">
-          <div className="text-xs font-mono text-muted-foreground">USER</div>
-          <h1 className="text-3xl font-bold mt-1">{k.name}</h1>
-          <p className="text-xs font-mono text-muted-foreground mt-2 break-all">
-            id: {k.public_slug}
-          </p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid sm:grid-cols-3 gap-3 mb-8">
-          <StatCard
-            icon={Database}
-            label="Credits remaining"
-            value={creditsLeft === null ? "Unlimited" : `${creditsLeft}`}
-            sub={k.credits_total === null ? "no limit" : `of ${k.credits_total} · used ${k.credits_used}`}
-            highlight={creditsLeft !== null && creditsLeft <= 10}
-          />
-          <StatCard
-            icon={Clock}
-            label="Days remaining"
-            value={daysLeft === null ? "Unlimited" : `${daysLeft}`}
-            sub={k.expires_at ? `expires ${new Date(k.expires_at).toLocaleDateString()}` : "no expiry"}
-            highlight={daysLeft !== null && daysLeft <= 3}
-          />
-          <StatCard
-            icon={Activity}
-            label="Services enabled"
-            value={`${k.services.length}`}
-            sub="endpoints accessible"
-          />
-        </div>
-
-        {/* Quick how-to */}
-        <section className="panel border rounded-xl p-6 mb-8">
-          <h2 className="font-semibold flex items-center gap-2 mb-3">
-            <Shield className="size-4 text-primary" /> Authentication
-          </h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Use your API key in every request. Pass it as a query parameter <code className="font-mono bg-muted px-1.5 py-0.5 rounded">?key=...</code> or as an <code className="font-mono bg-muted px-1.5 py-0.5 rounded">X-Api-Key</code> header.
-          </p>
-          <CodeBlock>
-            {`# Your private API key (keep it secret)
-# Get it from the admin who issued this panel.`}
-          </CodeBlock>
-        </section>
-
-        {/* Documentation */}
-        <section>
-          <h2 className="text-xl font-bold mb-1">Available Endpoints</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            All endpoints are <span className="font-mono text-primary">GET</span> requests returning JSON.
-          </p>
-
-          <div className="space-y-3">
-            {k.services.map((sKey) => {
-              const def = SERVICE_MAP[sKey];
-              if (!def) return null;
-              return <EndpointCard key={sKey} def={def} origin={origin} />;
-            })}
-          </div>
-
-          {k.services.length === 0 && (
-            <div className="panel border rounded-xl p-6 text-center text-sm text-muted-foreground">
-              No services enabled on this key. Contact the admin.
-            </div>
-          )}
-        </section>
-
-        {/* Response format */}
-        <section className="mt-8 panel border rounded-xl p-6">
-          <h2 className="font-semibold mb-2">Response format</h2>
-          <p className="text-sm text-muted-foreground mb-3">
-            All responses are JSON. On success: HTTP 200 with the lookup data. On error: appropriate
-            HTTP status with <code className="font-mono bg-muted px-1.5 py-0.5 rounded">{`{"error": "message"}`}</code>.
-          </p>
-          <div className="grid sm:grid-cols-2 gap-2 text-xs font-mono">
-            {[
-              ["200", "Success — 1 credit used"],
-              ["400", "Missing / invalid parameter"],
-              ["401", "Invalid API key"],
-              ["402", "No credits remaining"],
-              ["403", "Service disabled or key inactive"],
-              ["429", "Rate limit exceeded"],
-              ["502", "Upstream error"],
-            ].map(([code, msg]) => (
-              <div key={code} className="flex gap-3 px-3 py-2 bg-muted/40 border border-border/30 rounded-md">
-                <span className="text-primary">{code}</span>
-                <span className="text-muted-foreground">{msg}</span>
-              </div>
+      <div className="max-w-7xl mx-auto px-4 lg:px-6 grid lg:grid-cols-[220px_1fr] gap-6 py-6">
+        {/* Sidebar */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-20 space-y-4">
+            <NavSection title="Overview" items={[
+              ["overview", "Introduction"],
+              ["auth", "Authentication"],
+              ["limits", "Rate Limits & Security"],
+              ["errors", "Error Codes"],
+              ["html", "HTML Example"],
+            ]} />
+            {orderedCats.map((cat) => (
+              <NavSection
+                key={cat} title={cat}
+                items={grouped[cat].map((s) => [`ep-${s.key}`, s.label])}
+              />
             ))}
           </div>
-        </section>
+        </aside>
 
-        <footer className="mt-12 text-center text-xs text-muted-foreground font-mono">
-          OSINT_PANEL · powered by Krishna · t.me/moneycomming
-        </footer>
-      </main>
+        {/* Content */}
+        <main className="min-w-0 space-y-10 pb-20">
+          {/* Hero / stats */}
+          <section id="overview">
+            <div className="text-xs font-mono text-muted-foreground">USER</div>
+            <h1 className="text-3xl font-bold mt-1">{k.name}</h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              Private API documentation. Use the key below in every request.
+              All endpoints return JSON. Test any endpoint directly in this page.
+            </p>
+
+            <div className="grid sm:grid-cols-3 gap-3 mt-6">
+              <StatCard icon={Database} label="Credits remaining"
+                value={creditsLeft === null ? "Unlimited" : `${creditsLeft}`}
+                sub={k.credits_total === null ? "no limit" : `of ${k.credits_total} · used ${k.credits_used}`}
+                highlight={creditsLeft !== null && creditsLeft <= 10} />
+              <StatCard icon={Clock} label="Days remaining"
+                value={daysLeft === null ? "Unlimited" : `${daysLeft}`}
+                sub={k.expires_at ? `expires ${new Date(k.expires_at).toLocaleDateString()}` : "no expiry"}
+                highlight={daysLeft !== null && daysLeft <= 3} />
+              <StatCard icon={Activity} label="Endpoints enabled"
+                value={`${k.services.length}`} sub="services accessible" />
+            </div>
+          </section>
+
+          {/* Auth */}
+          <section id="auth" className="panel border rounded-xl p-6">
+            <h2 className="font-semibold flex items-center gap-2 mb-3">
+              <KeyRound className="size-4 text-primary" /> Authentication
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Your API key is private — do not share it, do not commit it to public repos,
+              and do not embed it in client-side JavaScript on a public website.
+              Anyone with this key can use your credits.
+            </p>
+            <ApiKeyDisplay apiKey={k.api_key} />
+            <p className="text-xs text-muted-foreground mt-4">
+              Pass the key as <code className="font-mono bg-muted px-1.5 py-0.5 rounded">?key=YOUR_KEY</code> in
+              the query string, or as an <code className="font-mono bg-muted px-1.5 py-0.5 rounded">X-Api-Key</code> header.
+            </p>
+          </section>
+
+          {/* Limits */}
+          <section id="limits" className="panel border rounded-xl p-6">
+            <h2 className="font-semibold flex items-center gap-2 mb-3">
+              <Shield className="size-4 text-primary" /> Rate Limits & Security
+            </h2>
+            <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+              <li><span className="text-foreground font-mono">60 req/min</span> per IP address.</li>
+              <li><span className="text-foreground font-mono">120 req/min</span> per API key.</li>
+              <li>
+                Exceeding <span className="text-foreground font-mono">120 req/min</span> from one IP
+                triggers an automatic <span className="text-destructive">10-minute IP block</span>.
+              </li>
+              <li>
+                Exceeding <span className="text-foreground font-mono">300 req/min</span> on a single key
+                automatically disables the key until an admin re-enables it.
+              </li>
+              <li>Credits are deducted only on successful (HTTP 200) responses.</li>
+              <li>Unique results are returned; sensitive upstream identifiers are stripped automatically.</li>
+            </ul>
+            <div className="mt-4 grid sm:grid-cols-3 gap-2 text-xs font-mono">
+              {[
+                ["X-RateLimit-Limit", "per-key per minute"],
+                ["X-RateLimit-Remaining", "calls left this minute"],
+                ["X-Credits-Remaining", "credits left on key"],
+              ].map(([h, d]) => (
+                <div key={h} className="px-3 py-2 bg-muted/40 border border-border/30 rounded-md">
+                  <div className="text-primary">{h}</div>
+                  <div className="text-muted-foreground mt-0.5">{d}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Errors */}
+          <section id="errors" className="panel border rounded-xl p-6">
+            <h2 className="font-semibold flex items-center gap-2 mb-3">
+              <AlertTriangle className="size-4 text-primary" /> Error Codes
+            </h2>
+            <div className="grid sm:grid-cols-2 gap-2 text-xs font-mono">
+              {[
+                ["200", "Success — 1 credit used"],
+                ["400", "Missing / invalid parameter"],
+                ["401", "Missing or invalid API key"],
+                ["402", "No credits remaining"],
+                ["403", "Disabled, expired, IP blocked, or service not enabled"],
+                ["429", "Rate limit exceeded or abuse detected"],
+                ["502", "Upstream error"],
+                ["504", "Upstream timeout (retry in a moment)"],
+              ].map(([c, m]) => (
+                <div key={c} className="flex gap-3 px-3 py-2 bg-muted/40 border border-border/30 rounded-md">
+                  <span className="text-primary w-8">{c}</span>
+                  <span className="text-muted-foreground">{m}</span>
+                </div>
+              ))}
+            </div>
+            <CodeBlock label="Error response" className="mt-4">
+{`{
+  "success": false,
+  "error": "Rate limit exceeded. Slow down."
+}`}
+            </CodeBlock>
+          </section>
+
+          {/* HTML example */}
+          <section id="html" className="panel border rounded-xl p-6">
+            <h2 className="font-semibold flex items-center gap-2 mb-3">
+              <Code2 className="size-4 text-primary" /> Ready-to-use HTML page
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Save this as <code className="font-mono bg-muted px-1.5 py-0.5 rounded">test.html</code> and
+              open in a browser. Replace <code className="font-mono">YOUR_KEY</code> on a private machine only.
+            </p>
+            <CodeBlock label="test.html" lang="html">
+{`<!doctype html>
+<html><head><meta charset="utf-8"><title>API Test</title></head>
+<body style="font-family:system-ui;max-width:600px;margin:40px auto;padding:0 16px">
+  <h2>OSINT Lookup</h2>
+  <input id="num" placeholder="Phone number" style="width:100%;padding:8px"/>
+  <button onclick="run()" style="margin-top:8px;padding:8px 16px">Lookup</button>
+  <pre id="out" style="background:#111;color:#0f0;padding:12px;border-radius:8px;overflow:auto"></pre>
+  <script>
+    const API_KEY = "YOUR_KEY"; // keep this private
+    const BASE = "${base}";
+    async function run() {
+      const num = document.getElementById("num").value.trim();
+      const r = await fetch(BASE + "/api/v1/number?num=" + encodeURIComponent(num), {
+        headers: { "X-Api-Key": API_KEY }
+      });
+      const data = await r.json();
+      document.getElementById("out").textContent = JSON.stringify(data, null, 2);
+    }
+  </script>
+</body></html>`}
+            </CodeBlock>
+          </section>
+
+          {/* Endpoints grouped by category */}
+          {orderedCats.map((cat) => (
+            <section key={cat} className="space-y-4">
+              <h2 className="text-xl font-bold border-b border-border/40 pb-2">{cat}</h2>
+              {grouped[cat].map((def) => (
+                <EndpointDoc key={def.key} def={def} base={base} apiKey={k.api_key} />
+              ))}
+            </section>
+          ))}
+
+          <footer className="text-center text-xs text-muted-foreground font-mono pt-10">
+            Powered by Krishna · t.me/moneycomming
+          </footer>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function NavSection({ title, items }: { title: string; items: [string, string][] }) {
+  return (
+    <div>
+      <div className="text-[10px] font-mono uppercase text-muted-foreground tracking-wider mb-2 px-2">
+        {title}
+      </div>
+      <nav className="space-y-0.5">
+        {items.map(([id, label]) => (
+          <a key={id} href={`#${id}`}
+            className="block text-xs px-2 py-1.5 rounded hover:bg-accent/20 hover:text-primary text-muted-foreground transition-colors">
+            {label}
+          </a>
+        ))}
+      </nav>
     </div>
   );
 }
@@ -188,51 +303,182 @@ function StatCard({
   );
 }
 
-function EndpointCard({ def, origin }: { def: { key: string; param: string; label: string; example: string }; origin: string }) {
-  // We don't expose the user's key here — they already have it.
-  const base = origin || "https://your-domain";
-  const url = `${base}/api/v1/${def.key}?key=YOUR_API_KEY&${def.param}=${def.example}`;
-  const curl = `curl -H "X-Api-Key: YOUR_API_KEY" "${base}/api/v1/${def.key}?${def.param}=${def.example}"`;
+function ApiKeyDisplay({ apiKey }: { apiKey: string }) {
+  const [show, setShow] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const masked = apiKey.slice(0, 8) + "•".repeat(Math.max(0, apiKey.length - 12)) + apiKey.slice(-4);
+  return (
+    <div className="flex items-center gap-2 p-3 rounded-lg bg-background/80 border border-border/50 font-mono text-sm">
+      <KeyRound className="size-4 text-primary shrink-0" />
+      <span className="flex-1 break-all">{show ? apiKey : masked}</span>
+      <button onClick={() => setShow((s) => !s)} title={show ? "Hide" : "Show"}
+        className="p-1.5 rounded hover:bg-accent/20 text-muted-foreground">
+        {show ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+      </button>
+      <button
+        onClick={() => { navigator.clipboard.writeText(apiKey); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+        className="p-1.5 rounded hover:bg-accent/20 text-muted-foreground" title="Copy">
+        {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
+      </button>
+    </div>
+  );
+}
+
+function EndpointDoc({ def, base, apiKey }: { def: ServiceDef; base: string; apiKey: string }) {
+  const [tab, setTab] = useState<"curl" | "js" | "url">("curl");
+  const [input, setInput] = useState(def.example);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{ status: number; body: string } | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const path = `/api/v1/${def.key}`;
+  const url = `${base}${path}?key=YOUR_API_KEY&${def.param}=${encodeURIComponent(def.example)}`;
+  const curl = `curl -H "X-Api-Key: YOUR_API_KEY" "${base}${path}?${def.param}=${encodeURIComponent(def.example)}"`;
+  const js =
+`const r = await fetch("${base}${path}?${def.param}=${encodeURIComponent(def.example)}", {
+  headers: { "X-Api-Key": "YOUR_API_KEY" }
+});
+const data = await r.json();
+console.log(data);`;
+
+  async function run() {
+    abortRef.current?.abort();
+    const ac = new AbortController(); abortRef.current = ac;
+    setRunning(true); setResult(null);
+    try {
+      const r = await fetch(`${path}?${def.param}=${encodeURIComponent(input)}`, {
+        headers: { "X-Api-Key": apiKey }, signal: ac.signal,
+      });
+      const txt = await r.text();
+      let pretty = txt;
+      try { pretty = JSON.stringify(JSON.parse(txt), null, 2); } catch { /* keep raw */ }
+      setResult({ status: r.status, body: pretty });
+    } catch (e) {
+      setResult({ status: 0, body: String((e as Error).message ?? e) });
+    } finally { setRunning(false); }
+  }
 
   return (
-    <div className="panel border rounded-xl overflow-hidden">
+    <div id={`ep-${def.key}`} className="panel border rounded-xl overflow-hidden scroll-mt-20">
       <div className="px-5 py-3 border-b border-border/40 flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-primary/20 text-primary rounded">GET</span>
-          <span className="font-mono text-sm">/api/v1/{def.key}</span>
-          <span className="text-xs text-muted-foreground">{def.label}</span>
+          <span className="font-mono text-sm truncate">{path}</span>
+          <span className="text-xs text-muted-foreground hidden sm:inline">{def.label}</span>
         </div>
         <span className="text-[10px] font-mono text-muted-foreground">
           param: <span className="text-primary">{def.param}</span>
         </span>
       </div>
-      <div className="p-4 space-y-2">
-        <CodeBlock label="URL">{url}</CodeBlock>
-        <CodeBlock label="cURL">{curl}</CodeBlock>
+
+      <div className="p-5 space-y-4">
+        <p className="text-sm text-muted-foreground">{def.description}</p>
+        {def.notes && (
+          <div className="text-xs px-3 py-2 rounded border border-warning/30 bg-warning/5 text-warning">
+            Note: {def.notes}
+          </div>
+        )}
+
+        {/* Params table */}
+        <div>
+          <div className="text-[10px] font-mono uppercase text-muted-foreground mb-2">Parameters</div>
+          <div className="border border-border/40 rounded overflow-hidden text-xs">
+            <table className="w-full font-mono">
+              <thead className="bg-muted/40 text-muted-foreground">
+                <tr><th className="text-left p-2 w-24">Param</th><th className="text-left p-2 w-20">Required</th><th className="text-left p-2">Description</th></tr>
+              </thead>
+              <tbody>
+                <tr className="border-t border-border/30"><td className="p-2 text-primary">key</td><td className="p-2">yes</td><td className="p-2 text-muted-foreground">Your API key</td></tr>
+                <tr className="border-t border-border/30"><td className="p-2 text-primary">{def.param}</td><td className="p-2">yes</td><td className="p-2 text-muted-foreground">{def.paramDesc}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Code snippets */}
+        <div>
+          <div className="flex gap-1 mb-2">
+            {([
+              ["curl", "cURL", Terminal],
+              ["js", "JavaScript", Code2],
+              ["url", "URL", Globe],
+            ] as const).map(([id, label, Icon]) => (
+              <button key={id} onClick={() => setTab(id)}
+                className={`text-xs px-3 py-1.5 rounded-md font-mono flex items-center gap-1.5 ${
+                  tab === id ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-accent/20"
+                }`}>
+                <Icon className="size-3" /> {label}
+              </button>
+            ))}
+          </div>
+          <CodeBlock>{tab === "curl" ? curl : tab === "js" ? js : url}</CodeBlock>
+        </div>
+
+        {/* Try it */}
+        <div className="border border-primary/30 bg-primary/5 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Play className="size-4 text-primary" />
+            <span className="text-sm font-semibold">Try it live</span>
+            <span className="text-[10px] text-muted-foreground font-mono">uses your real key · costs 1 credit on success</span>
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={def.paramDesc}
+              className="flex-1 px-3 py-2 rounded bg-background/80 border border-border/50 text-sm font-mono focus:outline-none focus:border-primary"
+            />
+            <button onClick={run} disabled={running || !input.trim()}
+              className="px-4 py-2 rounded bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+              {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-3.5" />}
+              Run
+            </button>
+          </div>
+          {result && (
+            <div className="mt-3">
+              <div className="text-[10px] font-mono text-muted-foreground mb-1 flex items-center gap-2">
+                <span className={`px-1.5 py-0.5 rounded ${result.status >= 200 && result.status < 300 ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"}`}>
+                  {result.status || "ERR"}
+                </span>
+                response
+              </div>
+              <pre className="bg-background/80 border border-border/50 rounded p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-96">
+                {result.body}
+              </pre>
+            </div>
+          )}
+        </div>
+
+        {/* Sample response */}
+        <div>
+          <div className="text-[10px] font-mono uppercase text-muted-foreground mb-2">Sample response</div>
+          <CodeBlock>{JSON.stringify(def.sampleResponse, null, 2)}</CodeBlock>
+        </div>
       </div>
     </div>
   );
 }
 
-function CodeBlock({ children, label }: { children: string; label?: string }) {
+function CodeBlock({
+  children, label, lang, className = "",
+}: { children: string; label?: string; lang?: string; className?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(children);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div className="relative group">
-      {label && (
-        <div className="absolute top-2 left-3 text-[10px] font-mono text-muted-foreground">{label}</div>
+    <div className={`relative group ${className}`}>
+      {(label || lang) && (
+        <div className="absolute top-2 left-3 text-[10px] font-mono text-muted-foreground">
+          {label}{lang ? ` · ${lang}` : ""}
+        </div>
       )}
-      <button
-        onClick={copy}
-        className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-accent/20 opacity-60 group-hover:opacity-100"
-      >
+      <button onClick={copy}
+        className="absolute top-2 right-2 p-1.5 rounded-md hover:bg-accent/20 opacity-60 group-hover:opacity-100">
         {copied ? <Check className="size-3 text-primary" /> : <Copy className="size-3" />}
       </button>
-      <pre className={`bg-background/80 border border-border/50 rounded-md p-3 ${label ? "pt-6" : ""} text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all`}>
+      <pre className={`bg-background/80 border border-border/50 rounded-md p-3 ${label || lang ? "pt-6" : ""} text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[500px]`}>
         {children}
       </pre>
     </div>

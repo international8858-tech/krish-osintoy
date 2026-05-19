@@ -103,6 +103,30 @@ export type Database = {
           },
         ]
       }
+      ip_blocks: {
+        Row: {
+          blocked_until: string
+          created_at: string
+          id: string
+          ip: string
+          reason: string | null
+        }
+        Insert: {
+          blocked_until: string
+          created_at?: string
+          id?: string
+          ip: string
+          reason?: string | null
+        }
+        Update: {
+          blocked_until?: string
+          created_at?: string
+          id?: string
+          ip?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
