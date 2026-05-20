@@ -497,3 +497,198 @@ function CodeBlock({
     </div>
   );
 }
+
+// Build a self-contained, beautiful HTML tester page with the user's API key pre-filled.
+function buildTesterHtml(base: string, apiKey: string, services: string[]): string {
+  const enabled = services
+    .map((k) => SERVICE_MAP[k])
+    .filter(Boolean)
+    .map((s) => ({ key: s.key, param: s.param, label: s.label, example: s.example }));
+  const dataJs = JSON.stringify(enabled);
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>API Tester</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0a0a0f; color: #e6e6e6; min-height: 100vh; padding: 24px; }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .sub { color: #888; font-size: 13px; margin-bottom: 24px; }
+    .card { background: #14141c; border: 1px solid #26263a; border-radius: 12px; padding: 20px; }
+    label { display: block; font-size: 11px; color: #888; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 6px; font-weight: 600; }
+    select, input { width: 100%; padding: 10px 12px; border-radius: 8px;
+      background: #0a0a0f; border: 1px solid #2a2a3e; color: #fff;
+      font-size: 14px; font-family: ui-monospace, monospace; }
+    select:focus, input:focus { outline: none; border-color: #6366f1; }
+    .row { display: grid; gap: 12px; margin-bottom: 12px; }
+    @media (min-width: 520px) { .row { grid-template-columns: 1fr 1fr; } }
+    button { width: 100%; padding: 12px; border-radius: 8px; border: none; cursor: pointer;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; font-weight: 600;
+      font-size: 14px; margin-top: 12px; }
+    button:hover { opacity: 0.9; } button:disabled { opacity: 0.5; cursor: wait; }
+    pre { background: #06060b; border: 1px solid #26263a; border-radius: 8px; padding: 14px;
+      font-size: 12px; line-height: 1.5; color: #98f5b4; overflow: auto; max-height: 480px;
+      white-space: pre-wrap; word-break: break-all; margin-top: 16px; }
+    .meta { display: flex; gap: 8px; margin-top: 12px; font-size: 11px; color: #888; flex-wrap: wrap; }
+    .badge { background: #1e1e2e; padding: 4px 8px; border-radius: 4px; font-family: ui-monospace, monospace; }
+    .ok { color: #4ade80; } .err { color: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>OSINT API Tester</h1>
+    <p class="sub">Your private testing page. API key is embedded — keep this file safe.</p>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>Service</label>
+          <select id="svc"></select>
+        </div>
+        <div>
+          <label id="paramLabel">Input</label>
+          <input id="val" placeholder="" />
+        </div>
+      </div>
+      <button id="go" onclick="run()">Run lookup</button>
+      <div class="meta">
+        <span class="badge" id="statusBadge">ready</span>
+        <span class="badge" id="timeBadge">—</span>
+        <span class="badge" id="creditsBadge">credits: —</span>
+      </div>
+      <pre id="out">// Response will appear here</pre>
+    </div>
+  </div>
+  <script>
+    const API_KEY = ${JSON.stringify(apiKey)};
+    const BASE = ${JSON.stringify(base)};
+    const SERVICES = ${dataJs};
+    const sel = document.getElementById("svc");
+    const val = document.getElementById("val");
+    const lbl = document.getElementById("paramLabel");
+    SERVICES.forEach(s => {
+      const o = document.createElement("option");
+      o.value = s.key; o.textContent = s.label + "  (/" + s.key + ")";
+      o.dataset.param = s.param; o.dataset.example = s.example;
+      sel.appendChild(o);
+    });
+    function syncParam() {
+      const o = sel.options[sel.selectedIndex];
+      lbl.textContent = o.dataset.param;
+      val.placeholder = "e.g. " + o.dataset.example;
+      val.value = o.dataset.example;
+    }
+    sel.addEventListener("change", syncParam); syncParam();
+    async function run() {
+      const svc = sel.value;
+      const param = sel.options[sel.selectedIndex].dataset.param;
+      const v = val.value.trim();
+      if (!v) return;
+      const out = document.getElementById("out");
+      const sb = document.getElementById("statusBadge");
+      const tb = document.getElementById("timeBadge");
+      const cb = document.getElementById("creditsBadge");
+      const btn = document.getElementById("go");
+      btn.disabled = true; sb.textContent = "loading…"; sb.className = "badge";
+      out.textContent = "// loading…";
+      const t0 = performance.now();
+      try {
+        const r = await fetch(BASE + "/api/v1/" + svc + "?" + param + "=" + encodeURIComponent(v),
+          { headers: { "X-Api-Key": API_KEY } });
+        const txt = await r.text();
+        let body = txt; try { body = JSON.stringify(JSON.parse(txt), null, 2); } catch(e){}
+        out.textContent = body;
+        sb.textContent = r.status; sb.className = "badge " + (r.ok ? "ok" : "err");
+        cb.textContent = "credits: " + (r.headers.get("X-Credits-Remaining") || "—");
+      } catch (e) {
+        out.textContent = "// network error: " + e.message;
+        sb.textContent = "ERR"; sb.className = "badge err";
+      } finally {
+        tb.textContent = Math.round(performance.now() - t0) + "ms";
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>`;
+}
+
+// Build a starter Telegram bot in Python using long-polling getUpdates.
+function buildTelegramBotPy(base: string, apiKey: string, services: string[]): string {
+  const enabled = services
+    .map((k) => SERVICE_MAP[k])
+    .filter(Boolean)
+    .map((s) => ({ key: s.key, param: s.param, label: s.label, example: s.example }));
+  return `# pip install requests
+import requests, time, json, urllib.parse
+
+BOT_TOKEN = "PASTE_YOUR_BOTFATHER_TOKEN_HERE"
+API_BASE  = ${JSON.stringify(base)}
+API_KEY   = ${JSON.stringify(apiKey)}  # keep this private
+
+# Commands → (path, query param, friendly label, example)
+SERVICES = ${JSON.stringify(enabled, null, 2)}
+CMD_MAP = { s["key"]: s for s in SERVICES }
+
+TG = f"https://api.telegram.org/bot{BOT_TOKEN}"
+
+def send(chat_id, text):
+    requests.post(f"{TG}/sendMessage", json={
+        "chat_id": chat_id, "text": text[:4000],
+        "parse_mode": "Markdown", "disable_web_page_preview": True
+    })
+
+def help_text():
+    lines = ["*Available commands:*"]
+    for s in SERVICES:
+        lines.append(f"\`/{s['key']} {s['example']}\`  — {s['label']}")
+    return "\\n".join(lines)
+
+def handle(msg):
+    chat_id = msg["chat"]["id"]
+    text = (msg.get("text") or "").strip()
+    if not text.startswith("/"):
+        return send(chat_id, "Send /help to see commands.")
+    parts = text[1:].split(maxsplit=1)
+    cmd = parts[0].split("@")[0].lower()
+    arg = parts[1].strip() if len(parts) > 1 else ""
+    if cmd in ("start", "help"):
+        return send(chat_id, help_text())
+    svc = CMD_MAP.get(cmd)
+    if not svc:
+        return send(chat_id, f"Unknown command /{cmd}. Try /help.")
+    if not arg:
+        return send(chat_id, f"Usage: /{cmd} {svc['example']}")
+    url = f"{API_BASE}/api/v1/{svc['key']}?{svc['param']}={urllib.parse.quote(arg)}"
+    try:
+        r = requests.get(url, headers={"X-Api-Key": API_KEY}, timeout=30)
+        data = r.json()
+        send(chat_id, f"\`\`\`json\\n{json.dumps(data, indent=2)[:3500]}\\n\`\`\`")
+    except Exception as e:
+        send(chat_id, f"Error: {e}")
+
+def main():
+    print("Bot started. Press Ctrl+C to stop.")
+    offset = 0
+    # Make sure no webhook is set, otherwise getUpdates returns nothing
+    requests.get(f"{TG}/deleteWebhook")
+    while True:
+        try:
+            r = requests.get(f"{TG}/getUpdates",
+                params={"offset": offset, "timeout": 25}, timeout=30)
+            for upd in r.json().get("result", []):
+                offset = upd["update_id"] + 1
+                msg = upd.get("message") or upd.get("edited_message")
+                if msg: handle(msg)
+        except Exception as e:
+            print("loop error:", e); time.sleep(3)
+
+if __name__ == "__main__":
+    main()
+`;
+}
+
