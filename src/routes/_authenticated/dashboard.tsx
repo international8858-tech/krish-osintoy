@@ -263,8 +263,11 @@ function KeyRow({
           >
             <ExternalLink className="size-4" />
           </a>
-          <button onClick={onToggle} className="p-2 hover:bg-accent/20 rounded-md" title="Toggle">
+          <button onClick={onToggle} className="p-2 hover:bg-accent/20 rounded-md" title="Toggle active">
             <Power className={`size-4 ${k.is_active ? "text-primary" : "text-muted-foreground"}`} />
+          </button>
+          <button onClick={onRotate} className="p-2 hover:bg-accent/20 rounded-md" title="Rotate dashboard URL (kills old link)">
+            <Shuffle className="size-4 text-warning" />
           </button>
           <button onClick={onDelete} className="p-2 hover:bg-destructive/20 rounded-md text-destructive" title="Delete">
             <Trash2 className="size-4" />
