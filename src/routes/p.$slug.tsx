@@ -395,7 +395,7 @@ console.log(data);`;
         {/* Params table */}
         <div>
           <div className="text-[10px] font-mono uppercase text-muted-foreground mb-2">Parameters</div>
-          <div className="border border-border/40 rounded overflow-hidden text-xs">
+          <div className="border border-border/40 rounded overflow-x-auto text-xs">
             <table className="w-full font-mono">
               <thead className="bg-muted/40 text-muted-foreground">
                 <tr><th className="text-left p-2 w-24">Param</th><th className="text-left p-2 w-20">Required</th><th className="text-left p-2">Description</th></tr>
