@@ -9,11 +9,12 @@ import {
   toggleApiKey,
   deleteApiKey,
   updateApiKey,
+  rotateSlug,
 } from "@/lib/api-keys.functions";
 import { SERVICES } from "@/lib/services";
 import { toast } from "sonner";
 import {
-  Loader2, Plus, Copy, ExternalLink, Power, Trash2, RefreshCw, LogOut, Check,
+  Loader2, Plus, Copy, ExternalLink, Power, Trash2, RefreshCw, LogOut, Check, Shuffle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -42,6 +43,7 @@ function Dashboard() {
   const toggle = useServerFn(toggleApiKey);
   const del = useServerFn(deleteApiKey);
   const update = useServerFn(updateApiKey);
+  const rotate = useServerFn(rotateSlug);
 
   const { data, isLoading } = useQuery({
     queryKey: ["api_keys"],
@@ -73,6 +75,12 @@ function Dashboard() {
     mutationFn: (d: { id: string; credits_total: number | null; extend_days?: number | null }) =>
       update({ data: d }),
     onSuccess: () => { toast.success("Updated"); refresh(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rotateMut = useMutation({
+    mutationFn: (id: string) => rotate({ data: { id } }),
+    onSuccess: () => { toast.success("Dashboard URL rotated — old link is dead"); refresh(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -152,6 +160,10 @@ function Dashboard() {
                 onDelete={() => {
                   if (confirm(`Delete API key for ${k.name}?`)) delMut.mutate(k.id);
                 }}
+                onRotate={() => {
+                  if (confirm(`Rotate dashboard URL for ${k.name}?\n\nThe old link will stop working immediately. Send the new URL to the customer.`))
+                    rotateMut.mutate(k.id);
+                }}
                 onAddCredits={(addCredits, addDays) => {
                   const newTotal = k.credits_total === null
                     ? null
@@ -180,11 +192,12 @@ function Dashboard() {
 }
 
 function KeyRow({
-  k, onToggle, onDelete, onAddCredits,
+  k, onToggle, onDelete, onRotate, onAddCredits,
 }: {
   k: ApiKeyRow;
   onToggle: () => void;
   onDelete: () => void;
+  onRotate: () => void;
   onAddCredits: (credits: number, days: number) => void;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
