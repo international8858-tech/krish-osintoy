@@ -163,14 +163,16 @@ function Panel({ k, origin }: { k: KeyRow; origin: string }) {
               <li><span className="text-foreground font-mono">120 req/min</span> per API key.</li>
               <li>
                 Exceeding <span className="text-foreground font-mono">120 req/min</span> from one IP
-                triggers an automatic <span className="text-destructive">10-minute IP block</span>.
+                triggers an automatic <span className="text-destructive">5-minute IP block</span>,
+                then it auto-recovers — no manual action needed.
               </li>
               <li>
                 Exceeding <span className="text-foreground font-mono">300 req/min</span> on a single key
-                automatically disables the key until an admin re-enables it.
+                triggers a <span className="text-destructive">5-minute key block</span>,
+                then it auto-resumes.
               </li>
               <li>Credits are deducted only on successful (HTTP 200) responses.</li>
-              <li>Unique results are returned; sensitive upstream identifiers are stripped automatically.</li>
+              <li>Sensitive upstream identifiers are stripped from every response automatically.</li>
             </ul>
             <div className="mt-4 grid sm:grid-cols-3 gap-2 text-xs font-mono">
               {[
