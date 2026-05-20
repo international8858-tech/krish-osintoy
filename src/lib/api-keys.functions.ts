@@ -103,6 +103,21 @@ export const deleteApiKey = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Rotate the public dashboard URL slug. Old link stops working immediately.
+export const rotateSlug = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+    const newSlug = genRandom(48);
+    const { error } = await supabaseAdmin
+      .from("api_keys")
+      .update({ public_slug: newSlug })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { public_slug: newSlug };
+  });
+
 const addCreditsSchema = z.object({
   id: z.string().uuid(),
   credits_total: z.number().int().positive().nullable(),

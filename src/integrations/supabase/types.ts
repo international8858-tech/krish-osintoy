@@ -17,6 +17,7 @@ export type Database = {
       api_keys: {
         Row: {
           api_key: string
+          blocked_until: string | null
           created_at: string
           created_by: string | null
           credits_total: number | null
@@ -32,6 +33,7 @@ export type Database = {
         }
         Insert: {
           api_key: string
+          blocked_until?: string | null
           created_at?: string
           created_by?: string | null
           credits_total?: number | null
@@ -47,6 +49,7 @@ export type Database = {
         }
         Update: {
           api_key?: string
+          blocked_until?: string | null
           created_at?: string
           created_by?: string | null
           credits_total?: number | null
