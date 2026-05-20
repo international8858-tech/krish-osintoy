@@ -75,7 +75,7 @@ function Panel({ k, origin }: { k: KeyRow; origin: string }) {
   const base = origin || "https://your-domain";
 
   return (
-    <div className="min-h-screen grid-bg">
+    <div className="min-h-screen grid-bg overflow-x-hidden w-full">
       <header className="border-b border-border/40 backdrop-blur-sm sticky top-0 z-20 bg-background/80">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2 font-mono font-bold text-sm">
@@ -100,7 +100,8 @@ function Panel({ k, origin }: { k: KeyRow; origin: string }) {
               ["auth", "Authentication"],
               ["limits", "Rate Limits & Security"],
               ["errors", "Error Codes"],
-              ["html", "HTML Example"],
+              ["html", "HTML Tester"],
+              ["telegram", "Telegram Bot"],
             ]} />
             {orderedCats.map((cat) => (
               <NavSection
