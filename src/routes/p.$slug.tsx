@@ -219,37 +219,47 @@ function Panel({ k, origin }: { k: KeyRow; origin: string }) {
             </CodeBlock>
           </section>
 
-          {/* HTML example */}
+          {/* HTML tester */}
           <section id="html" className="panel border rounded-xl p-6">
             <h2 className="font-semibold flex items-center gap-2 mb-3">
-              <Code2 className="size-4 text-primary" /> Ready-to-use HTML page
+              <Code2 className="size-4 text-primary" /> Ready-to-use HTML tester
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
               Save this as <code className="font-mono bg-muted px-1.5 py-0.5 rounded">test.html</code> and
-              open in a browser. Replace <code className="font-mono">YOUR_KEY</code> on a private machine only.
+              open in any browser. <span className="text-warning">Your API key is already filled in</span> —
+              keep this file private (do not host on a public website).
             </p>
             <CodeBlock label="test.html" lang="html">
-{`<!doctype html>
-<html><head><meta charset="utf-8"><title>API Test</title></head>
-<body style="font-family:system-ui;max-width:600px;margin:40px auto;padding:0 16px">
-  <h2>OSINT Lookup</h2>
-  <input id="num" placeholder="Phone number" style="width:100%;padding:8px"/>
-  <button onclick="run()" style="margin-top:8px;padding:8px 16px">Lookup</button>
-  <pre id="out" style="background:#111;color:#0f0;padding:12px;border-radius:8px;overflow:auto"></pre>
-  <script>
-    const API_KEY = "YOUR_KEY"; // keep this private
-    const BASE = "${base}";
-    async function run() {
-      const num = document.getElementById("num").value.trim();
-      const r = await fetch(BASE + "/api/v1/number?num=" + encodeURIComponent(num), {
-        headers: { "X-Api-Key": API_KEY }
-      });
-      const data = await r.json();
-      document.getElementById("out").textContent = JSON.stringify(data, null, 2);
-    }
-  </script>
-</body></html>`}
+              {buildTesterHtml(base, k.api_key, k.services)}
             </CodeBlock>
+          </section>
+
+          {/* Telegram bot docs */}
+          <section id="telegram" className="panel border rounded-xl p-6">
+            <h2 className="font-semibold flex items-center gap-2 mb-3">
+              <Send className="size-4 text-primary" /> Build your own Telegram bot
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Want a Telegram bot that lets your users query these APIs by sending a command?
+              Here is a complete, copy-paste starter. Replace <code className="font-mono">BOT_TOKEN</code> with
+              the token from <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-primary underline">@BotFather</a>.
+            </p>
+
+            <ol className="text-sm text-muted-foreground space-y-1.5 list-decimal pl-5 mb-4">
+              <li>Open Telegram → message <span className="font-mono">@BotFather</span> → <span className="font-mono">/newbot</span> → copy the token.</li>
+              <li>Install Python 3 and <span className="font-mono">pip install requests</span>.</li>
+              <li>Save the code below as <span className="font-mono">bot.py</span> and run <span className="font-mono">python bot.py</span>.</li>
+              <li>In Telegram, send <span className="font-mono">/number 9876543210</span> to your bot.</li>
+            </ol>
+
+            <CodeBlock label="bot.py" lang="python">
+              {buildTelegramBotPy(base, k.api_key, k.services)}
+            </CodeBlock>
+
+            <div className="mt-4 text-xs text-muted-foreground space-y-1">
+              <div><span className="text-primary font-mono">Commands supported:</span> {k.services.map(s => `/${s}`).join(", ")}</div>
+              <div className="text-warning">Security: never put your API key in a public GitHub repo. Run the bot on your own machine or VPS.</div>
+            </div>
           </section>
 
           {/* Endpoints grouped by category */}
