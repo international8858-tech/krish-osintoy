@@ -345,11 +345,11 @@ function EndpointDoc({ def, base, apiKey }: { def: ServiceDef; base: string; api
   const abortRef = useRef<AbortController | null>(null);
 
   const path = `/api/v1/${def.key}`;
-  const url = `${base}${path}?key=YOUR_API_KEY&${def.param}=${encodeURIComponent(def.example)}`;
-  const curl = `curl -H "X-Api-Key: YOUR_API_KEY" "${base}${path}?${def.param}=${encodeURIComponent(def.example)}"`;
+  const url = `${base}${path}?key=${apiKey}&${def.param}=${encodeURIComponent(def.example)}`;
+  const curl = `curl -H "X-Api-Key: ${apiKey}" "${base}${path}?${def.param}=${encodeURIComponent(def.example)}"`;
   const js =
 `const r = await fetch("${base}${path}?${def.param}=${encodeURIComponent(def.example)}", {
-  headers: { "X-Api-Key": "YOUR_API_KEY" }
+  headers: { "X-Api-Key": "${apiKey}" }
 });
 const data = await r.json();
 console.log(data);`;
