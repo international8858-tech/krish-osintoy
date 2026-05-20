@@ -6,7 +6,7 @@ import { getKeyBySlug } from "@/lib/api-keys.functions";
 import { SERVICE_MAP, CATEGORIES, type ServiceDef } from "@/lib/services";
 import {
   Copy, Check, Loader2, Activity, Clock, Database, Shield, Eye, EyeOff,
-  Play, Code2, Terminal, Globe, AlertTriangle, KeyRound,
+  Play, Code2, Terminal, Globe, AlertTriangle, KeyRound, Send,
 } from "lucide-react";
 
 export const Route = createFileRoute("/p/$slug")({
