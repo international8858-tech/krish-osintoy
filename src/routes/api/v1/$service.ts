@@ -6,9 +6,10 @@ import { UPSTREAM_BASE, getUpstreamKey, sanitizeResponse } from "@/lib/upstream.
 // Limits
 const IP_LIMIT_PER_MIN = 60;        // soft limit per IP per minute
 const IP_ABUSE_THRESHOLD = 120;     // hits in last minute → auto-block
-const IP_BLOCK_MINUTES = 10;        // duration of auto-block
+const IP_BLOCK_MINUTES = 5;         // duration of auto-block (auto-recovers)
 const KEY_LIMIT_PER_MIN = 120;      // per API key per minute
-const KEY_ABUSE_THRESHOLD = 300;    // hits in last minute → disable key (admin must re-enable)
+const KEY_ABUSE_THRESHOLD = 300;    // hits in last minute → temporarily block key
+const KEY_BLOCK_MINUTES = 5;        // duration of key auto-block (auto-recovers)
 const MAX_VALUE_LEN = 200;
 
 function getClientIp(request: Request): string {
@@ -114,6 +115,13 @@ export const Route = createFileRoute("/api/v1/$service")({
         if (!keyRow.is_active) return jsonResponse({ success: false, error: "This API key has been disabled." }, 403);
         if (keyRow.expires_at && new Date(keyRow.expires_at) < new Date())
           return jsonResponse({ success: false, error: "This API key has expired." }, 403);
+        if (keyRow.blocked_until && new Date(keyRow.blocked_until) > new Date()) {
+          return jsonResponse({
+            success: false,
+            error: "This API key is temporarily blocked due to abuse. Try again in a few minutes.",
+            blocked_until: keyRow.blocked_until,
+          }, 429);
+        }
         if (!keyRow.services.includes(params.service))
           return jsonResponse({ success: false, error: `Service '${params.service}' is not enabled on this key.` }, 403);
         if (keyRow.credits_total !== null && keyRow.credits_used >= keyRow.credits_total)
@@ -127,8 +135,13 @@ export const Route = createFileRoute("/api/v1/$service")({
           .gte("created_at", since);
         const keyHits = keyCount ?? 0;
         if (keyHits >= KEY_ABUSE_THRESHOLD) {
-          await supabaseAdmin.from("api_keys").update({ is_active: false }).eq("id", keyRow.id);
-          return jsonResponse({ success: false, error: "Key auto-disabled due to abuse. Contact admin." }, 429);
+          const until = new Date(Date.now() + KEY_BLOCK_MINUTES * 60_000).toISOString();
+          await supabaseAdmin.from("api_keys").update({ blocked_until: until }).eq("id", keyRow.id);
+          return jsonResponse({
+            success: false,
+            error: `Key temporarily blocked due to abuse. Auto-resumes in ${KEY_BLOCK_MINUTES} minutes.`,
+            blocked_until: until,
+          }, 429);
         }
         if (keyHits >= KEY_LIMIT_PER_MIN) {
           return jsonResponse({ success: false, error: "Per-key rate limit exceeded." }, 429, {
