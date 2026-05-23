@@ -14,7 +14,7 @@ import {
 import { SERVICES } from "@/lib/services";
 import { toast } from "sonner";
 import {
-  Loader2, Plus, Copy, ExternalLink, Power, Trash2, RefreshCw, LogOut, Check, Shuffle,
+  Loader2, Plus, Copy, ExternalLink, Power, Trash2, RefreshCw, LogOut, Check, Shuffle, FlaskConical,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -103,6 +103,12 @@ function Dashboard() {
             <span className="text-muted-foreground ml-2 text-xs">/ admin</span>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              to="/tester"
+              className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-md bg-primary/15 text-primary hover:bg-primary/25"
+            >
+              <FlaskConical className="size-3.5" /> Tester
+            </Link>
             <button
               onClick={refresh}
               className="p-2 hover:bg-accent/20 rounded-md"
