@@ -6,8 +6,9 @@ import { getKeyBySlug } from "@/lib/api-keys.functions";
 import { SERVICE_MAP, CATEGORIES, type ServiceDef } from "@/lib/services";
 import {
   Copy, Check, Loader2, Activity, Clock, Database, Shield, Eye, EyeOff,
-  Play, Code2, Terminal, Globe, AlertTriangle, KeyRound, Send,
+  Play, Code2, Terminal, Globe, AlertTriangle, KeyRound, Send, Download,
 } from "lucide-react";
+import { buildDocPdf } from "@/lib/pdf-doc";
 
 export const Route = createFileRoute("/p/$slug")({
   component: PublicPanel,
@@ -84,6 +85,20 @@ function Panel({ k, origin }: { k: KeyRow; origin: string }) {
             <span className="text-muted-foreground font-normal hidden sm:inline">· {k.name}</span>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const pdf = buildDocPdf({
+                  customerName: k.name, apiKey: k.api_key, baseUrl: base,
+                  services: k.services, creditsTotal: k.credits_total,
+                  creditsUsed: k.credits_used, expiresAt: k.expires_at,
+                });
+                pdf.save(`${k.name.replace(/[^a-z0-9]+/gi, "_")}_api_docs.pdf`);
+              }}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground font-semibold hover:opacity-90 glow"
+              title="Download full documentation as PDF"
+            >
+              <Download className="size-3.5" /> PDF
+            </button>
             <span className={`text-[10px] font-mono px-2 py-1 rounded-full ${
               active ? "bg-primary/20 text-primary" : "bg-destructive/20 text-destructive"
             }`}>{expired ? "EXPIRED" : k.is_active ? "● ACTIVE" : "DISABLED"}</span>
