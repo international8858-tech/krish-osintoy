@@ -12,10 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as PSlugRouteImport } from './routes/p.$slug'
-import { Route as AuthenticatedTesterRouteImport } from './routes/_authenticated/tester'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as ApiV1ServiceRouteImport } from './routes/api/v1/$service'
+import { Route as ApiPublicCronSuspendRouteImport } from './routes/api/public/cron/suspend'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -31,19 +31,14 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PSlugRoute = PSlugRouteImport.update({
-  id: '/p/$slug',
-  path: '/p/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedTesterRoute = AuthenticatedTesterRouteImport.update({
-  id: '/tester',
-  path: '/tester',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const ApiV1ServiceRoute = ApiV1ServiceRouteImport.update({
@@ -51,67 +46,72 @@ const ApiV1ServiceRoute = ApiV1ServiceRouteImport.update({
   path: '/api/v1/$service',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronSuspendRoute = ApiPublicCronSuspendRouteImport.update({
+  id: '/api/public/cron/suspend',
+  path: '/api/public/cron/suspend',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/tester': typeof AuthenticatedTesterRoute
-  '/p/$slug': typeof PSlugRoute
   '/api/v1/$service': typeof ApiV1ServiceRoute
+  '/api/public/cron/suspend': typeof ApiPublicCronSuspendRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/tester': typeof AuthenticatedTesterRoute
-  '/p/$slug': typeof PSlugRoute
   '/api/v1/$service': typeof ApiV1ServiceRoute
+  '/api/public/cron/suspend': typeof ApiPublicCronSuspendRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/tester': typeof AuthenticatedTesterRoute
-  '/p/$slug': typeof PSlugRoute
   '/api/v1/$service': typeof ApiV1ServiceRoute
+  '/api/public/cron/suspend': typeof ApiPublicCronSuspendRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/login'
+    | '/admin'
     | '/dashboard'
-    | '/tester'
-    | '/p/$slug'
     | '/api/v1/$service'
+    | '/api/public/cron/suspend'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
+    | '/admin'
     | '/dashboard'
-    | '/tester'
-    | '/p/$slug'
     | '/api/v1/$service'
+    | '/api/public/cron/suspend'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/login'
+    | '/_authenticated/admin'
     | '/_authenticated/dashboard'
-    | '/_authenticated/tester'
-    | '/p/$slug'
     | '/api/v1/$service'
+    | '/api/public/cron/suspend'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
-  PSlugRoute: typeof PSlugRoute
   ApiV1ServiceRoute: typeof ApiV1ServiceRoute
+  ApiPublicCronSuspendRoute: typeof ApiPublicCronSuspendRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -137,25 +137,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/p/$slug': {
-      id: '/p/$slug'
-      path: '/p/$slug'
-      fullPath: '/p/$slug'
-      preLoaderRoute: typeof PSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/tester': {
-      id: '/_authenticated/tester'
-      path: '/tester'
-      fullPath: '/tester'
-      preLoaderRoute: typeof AuthenticatedTesterRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/api/v1/$service': {
@@ -165,17 +158,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1ServiceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/suspend': {
+      id: '/api/public/cron/suspend'
+      path: '/api/public/cron/suspend'
+      fullPath: '/api/public/cron/suspend'
+      preLoaderRoute: typeof ApiPublicCronSuspendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedTesterRoute: typeof AuthenticatedTesterRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedTesterRoute: AuthenticatedTesterRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -186,8 +186,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
-  PSlugRoute: PSlugRoute,
   ApiV1ServiceRoute: ApiV1ServiceRoute,
+  ApiPublicCronSuspendRoute: ApiPublicCronSuspendRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
