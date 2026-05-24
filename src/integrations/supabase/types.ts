@@ -28,8 +28,10 @@ export type Database = {
           name: string
           notes: string | null
           public_slug: string
+          save_history: boolean
           services: string[]
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           api_key: string
@@ -44,8 +46,10 @@ export type Database = {
           name: string
           notes?: string | null
           public_slug: string
+          save_history?: boolean
           services?: string[]
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           api_key?: string
@@ -60,8 +64,10 @@ export type Database = {
           name?: string
           notes?: string | null
           public_slug?: string
+          save_history?: boolean
           services?: string[]
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -75,6 +81,7 @@ export type Database = {
           query_param: string | null
           service: string
           status: number
+          user_agent: string | null
         }
         Insert: {
           api_key_id?: string | null
@@ -85,6 +92,7 @@ export type Database = {
           query_param?: string | null
           service: string
           status: number
+          user_agent?: string | null
         }
         Update: {
           api_key_id?: string | null
@@ -95,6 +103,7 @@ export type Database = {
           query_param?: string | null
           service?: string
           status?: number
+          user_agent?: string | null
         }
         Relationships: [
           {
@@ -130,6 +139,87 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          marked_by: string | null
+          note: string | null
+          paid_at: string
+          period_end: string
+          period_start: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          marked_by?: string | null
+          note?: string | null
+          paid_at?: string
+          period_end: string
+          period_start: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          marked_by?: string | null
+          note?: string | null
+          paid_at?: string
+          period_end?: string
+          period_start?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          billing_cycle_days: number
+          charge_amount: number
+          created_at: string
+          full_name: string | null
+          is_suspended: boolean
+          last_paid_at: string | null
+          next_due_at: string
+          notes: string | null
+          suspended_reason: string | null
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          billing_cycle_days?: number
+          charge_amount?: number
+          created_at?: string
+          full_name?: string | null
+          is_suspended?: boolean
+          last_paid_at?: string | null
+          next_due_at?: string
+          notes?: string | null
+          suspended_reason?: string | null
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          billing_cycle_days?: number
+          charge_amount?: number
+          created_at?: string
+          full_name?: string | null
+          is_suspended?: boolean
+          last_paid_at?: string | null
+          next_due_at?: string
+          notes?: string | null
+          suspended_reason?: string | null
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -156,6 +246,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      find_email_by_username: { Args: { uname: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -163,6 +254,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      suspend_overdue_users: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin"
