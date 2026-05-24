@@ -38,14 +38,14 @@ function Dashboard() {
   const delFn = useServerFn(deleteApiKey);
   const updFn = useServerFn(updateApiKey);
 
-  const { data: prof, isLoading: pLoading } = useQuery({ queryKey: ["me"], queryFn: () => profileFn({}) });
-  const { data: keysRes } = useQuery({ queryKey: ["my-keys"], queryFn: () => listFn({}) });
+  const { data: prof, isLoading: pLoading } = useQuery({ queryKey: ["me"], queryFn: () => profileFn() });
+  const { data: keysRes } = useQuery({ queryKey: ["my-keys"], queryFn: () => listFn() });
 
   const [showCreate, setShowCreate] = useState(false);
   const [historyFor, setHistoryFor] = useState<KeyRow | null>(null);
 
   const createMut = useMutation({
-    mutationFn: (d: Parameters<typeof createFn>[0]["data"]) => createFn({ data: d }),
+    mutationFn: (d: { name: string; services: string[]; credits_total: number | null; days: number | null; notes?: string; save_history: boolean }) => createFn({ data: d }),
     onSuccess: () => { toast.success("Key created"); setShowCreate(false); qc.invalidateQueries({ queryKey: ["my-keys"] }); },
     onError: (e: Error) => toast.error(e.message),
   });

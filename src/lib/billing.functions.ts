@@ -74,7 +74,7 @@ export const adminUpdateBilling = createServerFn({ method: "POST" })
     if (data.charge_amount !== undefined) patch.charge_amount = data.charge_amount;
     if (data.billing_cycle_days !== undefined) patch.billing_cycle_days = data.billing_cycle_days;
     if (data.notes !== undefined) patch.notes = data.notes;
-    await supabaseAdmin.from("profiles").update(patch).eq("user_id", data.user_id);
+    await supabaseAdmin.from("profiles").update(patch as never).eq("user_id", data.user_id);
     return { ok: true };
   });
 

@@ -160,7 +160,7 @@ export const updateApiKey = createServerFn({ method: "POST" })
       const base = row?.expires_at ? new Date(row.expires_at) : new Date();
       patch.expires_at = new Date(base.getTime() + data.extend_days * 86400000).toISOString();
     }
-    const { error } = await supabaseAdmin.from("api_keys").update(patch).eq("id", data.id);
+    const { error } = await supabaseAdmin.from("api_keys").update(patch as never).eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

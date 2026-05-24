@@ -205,7 +205,7 @@ export const Route = createFileRoute("/api/v1/$service")({
           logRow.query_param = value.slice(0, 200);
           logRow.user_agent = ua;
         }
-        supabaseAdmin.from("api_request_logs").insert(logRow).then(() => {});
+        supabaseAdmin.from("api_request_logs").insert(logRow as never).then(() => {});
 
         const creditsLeft = keyRow.credits_total === null
           ? "unlimited"

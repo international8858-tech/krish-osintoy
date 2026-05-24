@@ -39,16 +39,16 @@ function AdminPanel() {
   const payFn = useServerFn(adminMarkPaid);
   const billFn = useServerFn(adminUpdateBilling);
 
-  const { data: me, isLoading: meLoading } = useQuery({ queryKey: ["me"], queryFn: () => meFn({}) });
+  const { data: me, isLoading: meLoading } = useQuery({ queryKey: ["me"], queryFn: () => meFn() });
   const { data: usersRes, isLoading } = useQuery({
-    queryKey: ["admin-users"], queryFn: () => listFn({}),
+    queryKey: ["admin-users"], queryFn: () => listFn(),
     enabled: me?.isAdmin === true,
   });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["admin-users"] });
 
   const createMut = useMutation({
-    mutationFn: (d: Parameters<typeof createFn>[0]["data"]) => createFn({ data: d }),
+    mutationFn: (d: { username: string; password: string; full_name?: string | null; charge_amount: number; billing_cycle_days: number; notes?: string | null }) => createFn({ data: d }),
     onSuccess: () => { toast.success("User created"); setShowCreate(false); refresh(); },
     onError: (e: Error) => toast.error(e.message),
   });
