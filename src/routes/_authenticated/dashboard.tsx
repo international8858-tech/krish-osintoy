@@ -269,7 +269,7 @@ function KeyRow({
           >
             <ExternalLink className="size-4" />
           </a>
-          <button onClick={onToggle} className="p-2 hover:bg-accent/20 rounded-md" title="Toggle active">
+          <button onClick={onToggle} className="p-2 hover:bg-accent/20 rounded-md" title={k.is_active ? "Revoke (disable)" : "Reactivate"}>
             <Power className={`size-4 ${k.is_active ? "text-primary" : "text-muted-foreground"}`} />
           </button>
           <button onClick={onRotate} className="p-2 hover:bg-accent/20 rounded-md" title="Rotate dashboard URL (kills old link)">
@@ -348,7 +348,7 @@ function CreateModal({
   onClose, onCreate, busy,
 }: {
   onClose: () => void;
-  onCreate: (d: { name: string; services: string[]; credits_total: number | null; days: number | null; notes?: string }) => void;
+  onCreate: (d: { name: string; services: string[]; credits_total: number | null; days: number | null; notes?: string; fast_mode?: boolean }) => void;
   busy: boolean;
 }) {
   const [name, setName] = useState("");
@@ -358,6 +358,7 @@ function CreateModal({
   const [unlimitedDays, setUnlimitedDays] = useState(false);
   const [days, setDays] = useState("30");
   const [notes, setNotes] = useState("");
+  const [fastMode, setFastMode] = useState(true);
 
   const toggle = (k: string) => {
     const next = new Set(selected);
@@ -375,6 +376,7 @@ function CreateModal({
       credits_total: unlimitedCredits ? null : Math.max(1, Number(credits) || 1),
       days: unlimitedDays ? null : Math.max(1, Number(days) || 1),
       notes: notes.trim() || undefined,
+      fast_mode: fastMode,
     });
   };
 
@@ -472,6 +474,23 @@ function CreateModal({
               className="mt-1 w-full rounded-md bg-input border px-3 py-2 text-sm"
             />
           </div>
+
+          <label className="flex items-start gap-2 p-3 border rounded-md bg-muted/30 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={fastMode}
+              onChange={(e) => setFastMode(e.target.checked)}
+              className="mt-0.5"
+            />
+            <div className="text-xs">
+              <div className="font-semibold">⚡ Fast Reply Mode</div>
+              <div className="text-muted-foreground mt-0.5">
+                Skips per-key rate-count queries and request logging. Calls go straight
+                to the master upstream — fastest possible response, lowest panel load.
+                Recommended for production keys.
+              </div>
+            </div>
+          </label>
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
