@@ -1,0 +1,1 @@
+ALTER TABLE public.api_keys ADD COLUMN IF NOT EXISTS fast_mode boolean NOT NULL DEFAULT false;

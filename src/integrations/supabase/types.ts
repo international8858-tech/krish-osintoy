@@ -23,6 +23,7 @@ export type Database = {
           credits_total: number | null
           credits_used: number
           expires_at: string | null
+          fast_mode: boolean
           id: string
           is_active: boolean
           name: string
@@ -41,6 +42,7 @@ export type Database = {
           credits_total?: number | null
           credits_used?: number
           expires_at?: string | null
+          fast_mode?: boolean
           id?: string
           is_active?: boolean
           name: string
@@ -59,6 +61,7 @@ export type Database = {
           credits_total?: number | null
           credits_used?: number
           expires_at?: string | null
+          fast_mode?: boolean
           id?: string
           is_active?: boolean
           name?: string

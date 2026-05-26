@@ -30,9 +30,10 @@ export const listApiKeys = createServerFn({ method: "GET" })
 const createSchema = z.object({
   name: z.string().trim().min(1).max(80),
   services: z.array(z.string().min(1).max(40)).min(1).max(50),
-  credits_total: z.number().int().positive().nullable(),  // null = unlimited
-  days: z.number().int().positive().nullable(),           // null = never expires
+  credits_total: z.number().int().positive().nullable(),
+  days: z.number().int().positive().nullable(),
   notes: z.string().max(500).optional().nullable(),
+  fast_mode: z.boolean().optional().default(false),
 });
 
 export const createApiKey = createServerFn({ method: "POST" })
@@ -41,7 +42,6 @@ export const createApiKey = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
 
-    // Validate services exist in catalog
     const valid = data.services.filter((s) => SERVICE_MAP[s]);
     if (valid.length === 0) throw new Error("No valid services selected");
 
@@ -49,7 +49,6 @@ export const createApiKey = createServerFn({ method: "POST" })
       ? new Date(Date.now() + data.days * 24 * 60 * 60 * 1000).toISOString()
       : null;
 
-    // Generate keys/slugs. Slug is long + unguessable per requirement.
     const safeName = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 20) || "user";
     const api_key = `${safeName}-${genRandom(24)}`;
     const public_slug = genRandom(48);
@@ -65,6 +64,7 @@ export const createApiKey = createServerFn({ method: "POST" })
         expires_at,
         notes: data.notes ?? null,
         created_by: context.userId,
+        fast_mode: data.fast_mode ?? false,
       })
       .select()
       .single();

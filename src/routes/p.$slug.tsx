@@ -175,20 +175,20 @@ function Panel({ k, origin }: { k: KeyRow; origin: string }) {
               <Shield className="size-4 text-primary" /> Rate Limits & Security
             </h2>
             <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-5">
-              <li><span className="text-foreground font-mono">60 req/min</span> per IP address.</li>
-              <li><span className="text-foreground font-mono">120 req/min</span> per API key.</li>
+              <li><span className="text-foreground font-mono">180 req/min</span> per IP address.</li>
+              <li><span className="text-foreground font-mono">300 req/min</span> per API key.</li>
               <li>
-                Exceeding <span className="text-foreground font-mono">120 req/min</span> from one IP
+                Exceeding <span className="text-foreground font-mono">360 req/min</span> from one IP
                 triggers an automatic <span className="text-destructive">5-minute IP block</span>,
                 then it auto-recovers — no manual action needed.
               </li>
               <li>
-                Exceeding <span className="text-foreground font-mono">300 req/min</span> on a single key
+                Exceeding <span className="text-foreground font-mono">600 req/min</span> on a single key
                 triggers a <span className="text-destructive">5-minute key block</span>,
                 then it auto-resumes.
               </li>
               <li>Credits are deducted only on successful (HTTP 200) responses.</li>
-              <li>Sensitive upstream identifiers are stripped from every response automatically.</li>
+              <li>All promotional branding and sensitive upstream identifiers are stripped from every response.</li>
             </ul>
             <div className="mt-4 grid sm:grid-cols-3 gap-2 text-xs font-mono">
               {[
@@ -288,7 +288,7 @@ function Panel({ k, origin }: { k: KeyRow; origin: string }) {
           ))}
 
           <footer className="text-center text-xs text-muted-foreground font-mono pt-10">
-            Powered by Krishna · t.me/moneycomming
+            Private API panel · educational use only
           </footer>
         </main>
       </div>
