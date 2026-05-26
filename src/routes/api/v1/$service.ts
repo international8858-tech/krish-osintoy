@@ -11,7 +11,7 @@ const KEY_LIMIT_PER_MIN = 300;
 const KEY_ABUSE_THRESHOLD = 600;
 const KEY_BLOCK_MINUTES = 5;
 const MAX_VALUE_LEN = 200;
-const UPSTREAM_TIMEOUT_MS = 20_000;
+const UPSTREAM_TIMEOUT_MS = 25_000;
 
 function getClientIp(request: Request): string {
   return (
@@ -29,7 +29,6 @@ function jsonResponse(body: unknown, status = 200, extraHeaders: Record<string, 
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       "Access-Control-Allow-Origin": "*",
-      "X-Powered-By": "OSINT-Panel",
       ...extraHeaders,
     },
   });
@@ -56,96 +55,98 @@ export const Route = createFileRoute("/api/v1/$service")({
         const value = url.searchParams.get(svc.param);
         const ip = getClientIp(request);
 
-        // Cheap input validation first — no DB needed.
         if (!key) return jsonResponse({ success: false, error: "Missing API key. Pass ?key=YOUR_KEY or X-Api-Key header." }, 401);
         if (!value) return jsonResponse({ success: false, error: `Missing query param '${svc.param}'.` }, 400);
         if (value.length > MAX_VALUE_LEN) return jsonResponse({ success: false, error: "Query value too long." }, 400);
 
-        const sinceIso = new Date(Date.now() - 60_000).toISOString();
-        const nowIso = new Date().toISOString();
+        // Fetch key first — fast_mode shortcut depends on it.
+        const { data: keyRow, error: keyErr } = await supabaseAdmin
+          .from("api_keys")
+          .select("*")
+          .eq("api_key", key)
+          .maybeSingle();
 
-        // 🚀 Parallel: block check + IP count + key lookup + key count
-        const [blockRes, ipCountRes, keyRes] = await Promise.all([
-          supabaseAdmin
-            .from("ip_blocks")
-            .select("blocked_until")
-            .eq("ip", ip)
-            .gt("blocked_until", nowIso)
-            .order("blocked_until", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-          supabaseAdmin
-            .from("api_request_logs")
-            .select("*", { count: "exact", head: true })
-            .eq("ip", ip)
-            .gte("created_at", sinceIso),
-          supabaseAdmin
-            .from("api_keys")
-            .select("*")
-            .eq("api_key", key)
-            .maybeSingle(),
-        ]);
-
-        if (blockRes.data) {
-          return jsonResponse({
-            success: false,
-            error: "Your IP is temporarily blocked due to abuse. Try again later.",
-            blocked_until: blockRes.data.blocked_until,
-          }, 403);
-        }
-
-        const ipHits = ipCountRes.count ?? 0;
-        if (ipHits >= IP_ABUSE_THRESHOLD) {
-          const until = new Date(Date.now() + IP_BLOCK_MINUTES * 60_000).toISOString();
-          // fire and forget
-          supabaseAdmin.from("ip_blocks").insert({ ip, blocked_until: until, reason: `auto: ${ipHits}/min` }).then(() => {});
-          return jsonResponse({ success: false, error: "Abuse detected. IP blocked for several minutes." }, 429);
-        }
-        if (ipHits >= IP_LIMIT_PER_MIN) {
-          return jsonResponse({ success: false, error: "Rate limit exceeded. Slow down." }, 429, { "Retry-After": "60" });
-        }
-
-        const keyRow = keyRes.data;
-        if (keyRes.error || !keyRow) {
-          supabaseAdmin.from("api_request_logs").insert({
-            api_key_id: null, service: params.service, ip, status: 401, error_msg: "Invalid key",
-          }).then(() => {});
+        if (keyErr || !keyRow) {
           return jsonResponse({ success: false, error: "Invalid API key." }, 401);
         }
-
-        if (!keyRow.is_active) return jsonResponse({ success: false, error: "This API key has been disabled." }, 403);
+        if (!keyRow.is_active) return jsonResponse({ success: false, error: "This API key has been revoked or disabled." }, 403);
         if (keyRow.expires_at && new Date(keyRow.expires_at) < new Date())
           return jsonResponse({ success: false, error: "This API key has expired." }, 403);
-        if (keyRow.blocked_until && new Date(keyRow.blocked_until) > new Date()) {
-          return jsonResponse({
-            success: false,
-            error: "This API key is temporarily blocked due to abuse. Try again in a few minutes.",
-            blocked_until: keyRow.blocked_until,
-          }, 429);
-        }
         if (!keyRow.services.includes(params.service))
           return jsonResponse({ success: false, error: `Service '${params.service}' is not enabled on this key.` }, 403);
         if (keyRow.credits_total !== null && keyRow.credits_used >= keyRow.credits_total)
           return jsonResponse({ success: false, error: "No credits remaining on this key." }, 402);
 
-        // Per-key count — only one extra query left, do it now.
-        const { count: keyCount } = await supabaseAdmin
-          .from("api_request_logs")
-          .select("*", { count: "exact", head: true })
-          .eq("api_key_id", keyRow.id)
-          .gte("created_at", sinceIso);
-        const keyHits = keyCount ?? 0;
-        if (keyHits >= KEY_ABUSE_THRESHOLD) {
-          const until = new Date(Date.now() + KEY_BLOCK_MINUTES * 60_000).toISOString();
-          supabaseAdmin.from("api_keys").update({ blocked_until: until }).eq("id", keyRow.id).then(() => {});
-          return jsonResponse({
-            success: false,
-            error: `Key temporarily blocked due to abuse. Auto-resumes in ${KEY_BLOCK_MINUTES} minutes.`,
-            blocked_until: until,
-          }, 429);
-        }
-        if (keyHits >= KEY_LIMIT_PER_MIN) {
-          return jsonResponse({ success: false, error: "Per-key rate limit exceeded." }, 429, { "Retry-After": "60" });
+        const fast = !!keyRow.fast_mode;
+        const sinceIso = new Date(Date.now() - 60_000).toISOString();
+        const nowIso = new Date().toISOString();
+
+        // 🚀 In fast mode we skip rate-count + IP-block queries entirely (no DB roundtrips
+        // before the upstream call). Per-key abuse cap is still enforced by upstream rate limits
+        // and by the key's credit balance.
+        let ipHits = 0;
+        let keyHits = 0;
+        if (!fast) {
+          const [blockRes, ipCountRes] = await Promise.all([
+            supabaseAdmin
+              .from("ip_blocks")
+              .select("blocked_until")
+              .eq("ip", ip)
+              .gt("blocked_until", nowIso)
+              .order("blocked_until", { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+            supabaseAdmin
+              .from("api_request_logs")
+              .select("*", { count: "exact", head: true })
+              .eq("ip", ip)
+              .gte("created_at", sinceIso),
+          ]);
+
+          if (blockRes.data) {
+            return jsonResponse({
+              success: false,
+              error: "Your IP is temporarily blocked due to abuse. Try again later.",
+              blocked_until: blockRes.data.blocked_until,
+            }, 403);
+          }
+
+          ipHits = ipCountRes.count ?? 0;
+          if (ipHits >= IP_ABUSE_THRESHOLD) {
+            const until = new Date(Date.now() + IP_BLOCK_MINUTES * 60_000).toISOString();
+            supabaseAdmin.from("ip_blocks").insert({ ip, blocked_until: until, reason: `auto: ${ipHits}/min` }).then(() => {});
+            return jsonResponse({ success: false, error: "Abuse detected. IP blocked for several minutes." }, 429);
+          }
+          if (ipHits >= IP_LIMIT_PER_MIN) {
+            return jsonResponse({ success: false, error: "Rate limit exceeded. Slow down." }, 429, { "Retry-After": "60" });
+          }
+
+          if (keyRow.blocked_until && new Date(keyRow.blocked_until) > new Date()) {
+            return jsonResponse({
+              success: false,
+              error: "This API key is temporarily blocked due to abuse. Try again in a few minutes.",
+              blocked_until: keyRow.blocked_until,
+            }, 429);
+          }
+
+          const { count: keyCount } = await supabaseAdmin
+            .from("api_request_logs")
+            .select("*", { count: "exact", head: true })
+            .eq("api_key_id", keyRow.id)
+            .gte("created_at", sinceIso);
+          keyHits = keyCount ?? 0;
+          if (keyHits >= KEY_ABUSE_THRESHOLD) {
+            const until = new Date(Date.now() + KEY_BLOCK_MINUTES * 60_000).toISOString();
+            supabaseAdmin.from("api_keys").update({ blocked_until: until }).eq("id", keyRow.id).then(() => {});
+            return jsonResponse({
+              success: false,
+              error: `Key temporarily blocked due to abuse. Auto-resumes in ${KEY_BLOCK_MINUTES} minutes.`,
+              blocked_until: until,
+            }, 429);
+          }
+          if (keyHits >= KEY_LIMIT_PER_MIN) {
+            return jsonResponse({ success: false, error: "Per-key rate limit exceeded." }, 429, { "Retry-After": "60" });
+          }
         }
 
         // 🚀 Call upstream
@@ -156,14 +157,14 @@ export const Route = createFileRoute("/api/v1/$service")({
         const t0 = Date.now();
         try {
           const r = await fetch(upstreamUrl, {
-            headers: { "User-Agent": "OSINT-Panel/1.0", "Accept": "application/json" },
+            headers: { "User-Agent": "Mozilla/5.0", "Accept": "application/json" },
             signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
           });
           upstreamStatus = r.status;
           const text = await r.text();
           try { payload = JSON.parse(text); } catch { payload = { raw: text }; }
         } catch {
-          payload = { success: false, error: "Upstream timeout. Please retry." };
+          payload = { success: false, error: "Upstream did not respond in time. Please retry in a moment." };
           upstreamStatus = 504;
         }
         const latency = Date.now() - t0;
@@ -179,14 +180,18 @@ export const Route = createFileRoute("/api/v1/$service")({
             .eq("id", keyRow.id)
             .then(() => {});
         }
-        supabaseAdmin.from("api_request_logs").insert({
-          api_key_id: keyRow.id,
-          service: params.service,
-          query_param: value.slice(0, 100),
-          ip,
-          status: upstreamStatus,
-          error_msg: success ? null : `upstream ${upstreamStatus}`,
-        }).then(() => {});
+        // In fast mode we skip log inserts entirely (zero post-call DB writes).
+        if (!fast) {
+          supabaseAdmin.from("api_request_logs").insert({
+            api_key_id: keyRow.id,
+            service: params.service,
+            // Do not store the raw query value or IP — keep only minimal counters.
+            query_param: null,
+            ip: null,
+            status: upstreamStatus,
+            error_msg: success ? null : `upstream ${upstreamStatus}`,
+          }).then(() => {});
+        }
 
         const creditsLeft = keyRow.credits_total === null
           ? "unlimited"
@@ -197,6 +202,7 @@ export const Route = createFileRoute("/api/v1/$service")({
           "X-RateLimit-Remaining": String(Math.max(0, KEY_LIMIT_PER_MIN - keyHits - 1)),
           "X-Credits-Remaining": creditsLeft,
           "X-Upstream-Latency": `${latency}ms`,
+          "X-Mode": fast ? "fast" : "standard",
         });
       },
     },

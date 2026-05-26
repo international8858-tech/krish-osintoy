@@ -5,18 +5,33 @@ export function getUpstreamKey(): string {
   return process.env.UPSTREAM_API_KEY || "nobita-neew";
 }
 
-// Fields whose VALUES we replace in every response.
-const REPLACE_VALUES: Record<string, string> = {
-  by: "Krishna",
-  channel: "https://t.me/moneycomming",
-};
-
-// Fields we strip entirely (potential leaks).
+// Fields we strip ENTIRELY from every response (branding + leaks).
 const STRIP_KEYS = new Set([
+  "by", "channel", "promotion", "promo", "promoted_by", "credit", "credits_by",
+  "developer", "dev", "creator", "owner", "author",
+  "telegram", "tg", "tg_channel", "support_channel", "support",
   "api_key", "apikey", "key", "secret", "token",
-  "created_by", "creator", "developer", "dev",
-  "source_url", "upstream", "backend",
+  "created_by", "source_url", "upstream", "backend", "powered_by", "made_by",
 ]);
+
+// Substrings in string VALUES that mean "promotional / branding text"
+// — we drop any key whose string value contains one of these.
+const STRIP_VALUE_HINTS = [
+  "t.me/",
+  "telegram.me/",
+  "@",
+  "join our",
+  "subscribe",
+  "powered by",
+  "made by",
+  "developed by",
+  "credits to",
+];
+
+function looksPromotional(s: string): boolean {
+  const lower = s.toLowerCase();
+  return STRIP_VALUE_HINTS.some((h) => lower.includes(h));
+}
 
 // Recursively sanitize any JSON value.
 export function sanitizeResponse(value: unknown): unknown {
@@ -26,16 +41,13 @@ export function sanitizeResponse(value: unknown): unknown {
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       const lower = k.toLowerCase();
       if (STRIP_KEYS.has(lower)) continue;
-      if (lower in REPLACE_VALUES) {
-        out[k] = REPLACE_VALUES[lower];
-      } else {
-        out[k] = sanitizeResponse(v);
-      }
+      // Drop string fields that are obviously promo links / handles.
+      if (typeof v === "string" && looksPromotional(v) && v.length < 300) continue;
+      out[k] = sanitizeResponse(v);
     }
     return out;
   }
   if (typeof value === "string") {
-    // Replace upstream key if it accidentally appears anywhere in strings.
     const up = getUpstreamKey();
     if (up && value.includes(up)) return value.replaceAll(up, "***");
     return value;
