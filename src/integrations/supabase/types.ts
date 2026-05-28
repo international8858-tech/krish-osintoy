@@ -223,6 +223,27 @@ export type Database = {
         }
         Relationships: []
       }
+      telegram_sessions: {
+        Row: {
+          api_key: string | null
+          chat_id: number
+          pending_service: string | null
+          updated_at: string
+        }
+        Insert: {
+          api_key?: string | null
+          chat_id: number
+          pending_service?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string | null
+          chat_id?: number
+          pending_service?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
