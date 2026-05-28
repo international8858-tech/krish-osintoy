@@ -11,10 +11,14 @@ import {
   updateApiKey,
   rotateSlug,
 } from "@/lib/api-keys.functions";
+import {
+  listPanelUsers, createPanelUser, deletePanelUser, resetPanelUserPassword,
+} from "@/lib/panel-users.functions";
 import { SERVICES } from "@/lib/services";
 import { toast } from "sonner";
 import {
   Loader2, Plus, Copy, ExternalLink, Power, Trash2, RefreshCw, LogOut, Check, Shuffle, FlaskConical,
+  Users, KeyRound,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
