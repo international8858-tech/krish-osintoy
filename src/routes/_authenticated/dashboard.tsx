@@ -11,10 +11,14 @@ import {
   updateApiKey,
   rotateSlug,
 } from "@/lib/api-keys.functions";
+import {
+  listPanelUsers, createPanelUser, deletePanelUser, resetPanelUserPassword,
+} from "@/lib/panel-users.functions";
 import { SERVICES } from "@/lib/services";
 import { toast } from "sonner";
 import {
   Loader2, Plus, Copy, ExternalLink, Power, Trash2, RefreshCw, LogOut, Check, Shuffle, FlaskConical,
+  Users, KeyRound,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -85,6 +89,8 @@ function Dashboard() {
   });
 
   const [showCreate, setShowCreate] = useState(false);
+  const [tab, setTab] = useState<"keys" | "users">("keys");
+  const [showCreateUser, setShowCreateUser] = useState(false);
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -127,62 +133,88 @@ function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">API Keys</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {keys.length} key{keys.length === 1 ? "" : "s"} issued
-            </p>
-          </div>
+        {/* Tabs */}
+        <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mb-6 max-w-md text-sm font-medium">
           <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 glow"
+            onClick={() => setTab("keys")}
+            className={`flex-1 py-2 rounded-md flex items-center justify-center gap-1.5 transition ${
+              tab === "keys" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+            }`}
           >
-            <Plus className="size-4" /> New API Key
+            <KeyRound className="size-3.5" /> API Keys
+          </button>
+          <button
+            onClick={() => setTab("users")}
+            className={`flex-1 py-2 rounded-md flex items-center justify-center gap-1.5 transition ${
+              tab === "users" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            <Users className="size-3.5" /> Panel Users
           </button>
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="size-6 animate-spin text-primary" />
-          </div>
-        ) : keys.length === 0 ? (
-          <div className="panel border rounded-xl p-12 text-center">
-            <div className="font-mono text-sm text-muted-foreground">No API keys yet</div>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              Create your first key
-            </button>
-          </div>
+        {tab === "keys" ? (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-bold">API Keys</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {keys.length} key{keys.length === 1 ? "" : "s"} issued
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 glow"
+              >
+                <Plus className="size-4" /> New API Key
+              </button>
+            </div>
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="size-6 animate-spin text-primary" />
+              </div>
+            ) : keys.length === 0 ? (
+              <div className="panel border rounded-xl p-12 text-center">
+                <div className="font-mono text-sm text-muted-foreground">No API keys yet</div>
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                >
+                  Create your first key
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {keys.map((k) => (
+                  <KeyRow
+                    key={k.id}
+                    k={k}
+                    onToggle={() => toggleMut.mutate({ id: k.id, is_active: !k.is_active })}
+                    onDelete={() => {
+                      if (confirm(`Delete API key for ${k.name}?`)) delMut.mutate(k.id);
+                    }}
+                    onRotate={() => {
+                      if (confirm(`Rotate dashboard URL for ${k.name}?\n\nThe old link will stop working immediately. Send the new URL to the customer.`))
+                        rotateMut.mutate(k.id);
+                    }}
+                    onAddCredits={(addCredits, addDays) => {
+                      const newTotal = k.credits_total === null
+                        ? null
+                        : k.credits_total + addCredits;
+                      updMut.mutate({
+                        id: k.id,
+                        credits_total: newTotal,
+                        extend_days: addDays || null,
+                      });
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
-          <div className="space-y-3">
-            {keys.map((k) => (
-              <KeyRow
-                key={k.id}
-                k={k}
-                onToggle={() => toggleMut.mutate({ id: k.id, is_active: !k.is_active })}
-                onDelete={() => {
-                  if (confirm(`Delete API key for ${k.name}?`)) delMut.mutate(k.id);
-                }}
-                onRotate={() => {
-                  if (confirm(`Rotate dashboard URL for ${k.name}?\n\nThe old link will stop working immediately. Send the new URL to the customer.`))
-                    rotateMut.mutate(k.id);
-                }}
-                onAddCredits={(addCredits, addDays) => {
-                  const newTotal = k.credits_total === null
-                    ? null
-                    : k.credits_total + addCredits;
-                  updMut.mutate({
-                    id: k.id,
-                    credits_total: newTotal,
-                    extend_days: addDays || null,
-                  });
-                }}
-              />
-            ))}
-          </div>
+          <PanelUsersTab onOpenCreate={() => setShowCreateUser(true)} />
         )}
       </main>
 
@@ -192,6 +224,9 @@ function Dashboard() {
           onCreate={(d) => createMut.mutate(d)}
           busy={createMut.isPending}
         />
+      )}
+      {showCreateUser && (
+        <CreatePanelUserModal onClose={() => setShowCreateUser(false)} />
       )}
     </div>
   );
@@ -511,3 +546,221 @@ function CreateModal({
 
 // silence "Link unused" import warning if applicable
 void Link;
+
+/* ------------------ Panel Users (admin-created username/password accounts) ------------------ */
+
+function PanelUsersTab({ onOpenCreate }: { onOpenCreate: () => void }) {
+  const qc = useQueryClient();
+  const list = useServerFn(listPanelUsers);
+  const del = useServerFn(deletePanelUser);
+  const reset = useServerFn(resetPanelUserPassword);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["panel_users"],
+    queryFn: () => list({}),
+  });
+
+  const delMut = useMutation({
+    mutationFn: (user_id: string) => del({ data: { user_id } }),
+    onSuccess: () => { toast.success("User deleted"); qc.invalidateQueries({ queryKey: ["panel_users"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetMut = useMutation({
+    mutationFn: (d: { user_id: string; password: string }) => reset({ data: d }),
+    onSuccess: () => toast.success("Password reset"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const users = (data?.users ?? []) as Array<{
+    user_id: string; username: string; full_name: string | null; created_at: string; is_suspended: boolean;
+  }>;
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Panel Users</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {users.length} account{users.length === 1 ? "" : "s"} — login via the <b>Panel</b> tab on the login page.
+          </p>
+        </div>
+        <button
+          onClick={onOpenCreate}
+          className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 glow"
+        >
+          <Plus className="size-4" /> Create User
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="size-6 animate-spin text-primary" />
+        </div>
+      ) : users.length === 0 ? (
+        <div className="panel border rounded-xl p-12 text-center">
+          <div className="font-mono text-sm text-muted-foreground">No panel users yet</div>
+          <button
+            onClick={onOpenCreate}
+            className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            Create first user
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {users.map((u) => (
+            <div key={u.user_id} className="panel border rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold font-mono">{u.username}</span>
+                  {u.is_suspended && (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-destructive/20 text-destructive">
+                      SUSPENDED
+                    </span>
+                  )}
+                </div>
+                {u.full_name && (
+                  <div className="text-xs text-muted-foreground mt-0.5">{u.full_name}</div>
+                )}
+                <div className="text-[11px] text-muted-foreground font-mono mt-1">
+                  Created {new Date(u.created_at).toLocaleDateString()}
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    const p = prompt(`New password for ${u.username} (min 8 chars)`);
+                    if (p && p.length >= 8) resetMut.mutate({ user_id: u.user_id, password: p });
+                    else if (p) toast.error("Password too short");
+                  }}
+                  className="text-xs px-3 py-1.5 rounded-md border hover:bg-accent/20"
+                  title="Reset password"
+                >
+                  Reset password
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete panel user "${u.username}"? This cannot be undone.`))
+                      delMut.mutate(u.user_id);
+                  }}
+                  className="p-2 hover:bg-destructive/20 rounded-md text-destructive"
+                  title="Delete"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function CreatePanelUserModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const create = useServerFn(createPanelUser);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+
+  const mut = useMutation({
+    mutationFn: (d: { username: string; password: string; full_name?: string | null }) =>
+      create({ data: d }),
+    onSuccess: () => {
+      toast.success("Panel user created");
+      qc.invalidateQueries({ queryKey: ["panel_users"] });
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^[a-z0-9_]{3,40}$/.test(username))
+      return toast.error("Username: 3–40 chars, lowercase/digits/underscore");
+    if (password.length < 8) return toast.error("Password min 8 chars");
+    mut.mutate({
+      username: username.toLowerCase(),
+      password,
+      full_name: fullName.trim() || null,
+    });
+  };
+
+  const randomPwd = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let out = "";
+    const arr = new Uint8Array(14);
+    crypto.getRandomValues(arr);
+    for (let i = 0; i < arr.length; i++) out += chars[arr[i] % chars.length];
+    setPassword(out);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <form onSubmit={submit} className="panel border rounded-2xl p-6 w-full max-w-md">
+        <h2 className="text-xl font-bold mb-1">Create Panel User</h2>
+        <p className="text-xs text-muted-foreground mb-5">
+          Only the master admin can create accounts. Users log in via the <b>Panel</b> tab on the login page using these credentials.
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-mono text-muted-foreground">USERNAME</label>
+            <input
+              autoFocus
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+              maxLength={40}
+              placeholder="e.g. rahul_07"
+              className="mt-1 w-full rounded-md bg-input border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-mono text-muted-foreground">PASSWORD</label>
+              <button type="button" onClick={randomPwd} className="text-[11px] underline text-muted-foreground hover:text-foreground">
+                Generate strong
+              </button>
+            </div>
+            <input
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              minLength={8}
+              maxLength={128}
+              placeholder="min 8 characters"
+              className="mt-1 w-full rounded-md bg-input border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-mono text-muted-foreground">FULL NAME (optional)</label>
+            <input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              maxLength={80}
+              placeholder="Display name"
+              className="mt-1 w-full rounded-md bg-input border px-3 py-2 text-sm"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-md border hover:bg-accent/20">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={mut.isPending}
+            className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground font-semibold hover:opacity-90 disabled:opacity-50 flex items-center gap-2 glow"
+          >
+            {mut.isPending && <Loader2 className="size-4 animate-spin" />} Create User
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
