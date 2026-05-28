@@ -133,62 +133,88 @@ function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">API Keys</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {keys.length} key{keys.length === 1 ? "" : "s"} issued
-            </p>
-          </div>
+        {/* Tabs */}
+        <div className="flex items-center gap-1 p-1 bg-muted rounded-lg mb-6 max-w-md text-sm font-medium">
           <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 glow"
+            onClick={() => setTab("keys")}
+            className={`flex-1 py-2 rounded-md flex items-center justify-center gap-1.5 transition ${
+              tab === "keys" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+            }`}
           >
-            <Plus className="size-4" /> New API Key
+            <KeyRound className="size-3.5" /> API Keys
+          </button>
+          <button
+            onClick={() => setTab("users")}
+            className={`flex-1 py-2 rounded-md flex items-center justify-center gap-1.5 transition ${
+              tab === "users" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            <Users className="size-3.5" /> Panel Users
           </button>
         </div>
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="size-6 animate-spin text-primary" />
-          </div>
-        ) : keys.length === 0 ? (
-          <div className="panel border rounded-xl p-12 text-center">
-            <div className="font-mono text-sm text-muted-foreground">No API keys yet</div>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              Create your first key
-            </button>
-          </div>
+        {tab === "keys" ? (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-bold">API Keys</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {keys.length} key{keys.length === 1 ? "" : "s"} issued
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreate(true)}
+                className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 glow"
+              >
+                <Plus className="size-4" /> New API Key
+              </button>
+            </div>
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="size-6 animate-spin text-primary" />
+              </div>
+            ) : keys.length === 0 ? (
+              <div className="panel border rounded-xl p-12 text-center">
+                <div className="font-mono text-sm text-muted-foreground">No API keys yet</div>
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="mt-4 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                >
+                  Create your first key
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {keys.map((k) => (
+                  <KeyRow
+                    key={k.id}
+                    k={k}
+                    onToggle={() => toggleMut.mutate({ id: k.id, is_active: !k.is_active })}
+                    onDelete={() => {
+                      if (confirm(`Delete API key for ${k.name}?`)) delMut.mutate(k.id);
+                    }}
+                    onRotate={() => {
+                      if (confirm(`Rotate dashboard URL for ${k.name}?\n\nThe old link will stop working immediately. Send the new URL to the customer.`))
+                        rotateMut.mutate(k.id);
+                    }}
+                    onAddCredits={(addCredits, addDays) => {
+                      const newTotal = k.credits_total === null
+                        ? null
+                        : k.credits_total + addCredits;
+                      updMut.mutate({
+                        id: k.id,
+                        credits_total: newTotal,
+                        extend_days: addDays || null,
+                      });
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
-          <div className="space-y-3">
-            {keys.map((k) => (
-              <KeyRow
-                key={k.id}
-                k={k}
-                onToggle={() => toggleMut.mutate({ id: k.id, is_active: !k.is_active })}
-                onDelete={() => {
-                  if (confirm(`Delete API key for ${k.name}?`)) delMut.mutate(k.id);
-                }}
-                onRotate={() => {
-                  if (confirm(`Rotate dashboard URL for ${k.name}?\n\nThe old link will stop working immediately. Send the new URL to the customer.`))
-                    rotateMut.mutate(k.id);
-                }}
-                onAddCredits={(addCredits, addDays) => {
-                  const newTotal = k.credits_total === null
-                    ? null
-                    : k.credits_total + addCredits;
-                  updMut.mutate({
-                    id: k.id,
-                    credits_total: newTotal,
-                    extend_days: addDays || null,
-                  });
-                }}
-              />
-            ))}
-          </div>
+          <PanelUsersTab onOpenCreate={() => setShowCreateUser(true)} />
         )}
       </main>
 
@@ -198,6 +224,9 @@ function Dashboard() {
           onCreate={(d) => createMut.mutate(d)}
           busy={createMut.isPending}
         />
+      )}
+      {showCreateUser && (
+        <CreatePanelUserModal onClose={() => setShowCreateUser(false)} />
       )}
     </div>
   );
