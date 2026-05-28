@@ -17,6 +17,8 @@ import { Route as PSlugRouteImport } from './routes/p.$slug'
 import { Route as AuthenticatedTesterRouteImport } from './routes/_authenticated/tester'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as ApiV1ServiceRouteImport } from './routes/api/v1/$service'
+import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
+import { Route as ApiPublicTelegramSetupRouteImport } from './routes/api/public/telegram/setup'
 
 const TestRoute = TestRouteImport.update({
   id: '/test',
@@ -57,6 +59,17 @@ const ApiV1ServiceRoute = ApiV1ServiceRouteImport.update({
   path: '/api/v1/$service',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTelegramWebhookRoute =
+  ApiPublicTelegramWebhookRouteImport.update({
+    id: '/api/public/telegram/webhook',
+    path: '/api/public/telegram/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicTelegramSetupRoute = ApiPublicTelegramSetupRouteImport.update({
+  id: '/api/public/telegram/setup',
+  path: '/api/public/telegram/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,6 +79,8 @@ export interface FileRoutesByFullPath {
   '/tester': typeof AuthenticatedTesterRoute
   '/p/$slug': typeof PSlugRoute
   '/api/v1/$service': typeof ApiV1ServiceRoute
+  '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
+  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -75,6 +90,8 @@ export interface FileRoutesByTo {
   '/tester': typeof AuthenticatedTesterRoute
   '/p/$slug': typeof PSlugRoute
   '/api/v1/$service': typeof ApiV1ServiceRoute
+  '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
+  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -86,6 +103,8 @@ export interface FileRoutesById {
   '/_authenticated/tester': typeof AuthenticatedTesterRoute
   '/p/$slug': typeof PSlugRoute
   '/api/v1/$service': typeof ApiV1ServiceRoute
+  '/api/public/telegram/setup': typeof ApiPublicTelegramSetupRoute
+  '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,6 +116,8 @@ export interface FileRouteTypes {
     | '/tester'
     | '/p/$slug'
     | '/api/v1/$service'
+    | '/api/public/telegram/setup'
+    | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -106,6 +127,8 @@ export interface FileRouteTypes {
     | '/tester'
     | '/p/$slug'
     | '/api/v1/$service'
+    | '/api/public/telegram/setup'
+    | '/api/public/telegram/webhook'
   id:
     | '__root__'
     | '/'
@@ -116,6 +139,8 @@ export interface FileRouteTypes {
     | '/_authenticated/tester'
     | '/p/$slug'
     | '/api/v1/$service'
+    | '/api/public/telegram/setup'
+    | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -125,6 +150,8 @@ export interface RootRouteChildren {
   TestRoute: typeof TestRoute
   PSlugRoute: typeof PSlugRoute
   ApiV1ServiceRoute: typeof ApiV1ServiceRoute
+  ApiPublicTelegramSetupRoute: typeof ApiPublicTelegramSetupRoute
+  ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -185,6 +212,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1ServiceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/telegram/webhook': {
+      id: '/api/public/telegram/webhook'
+      path: '/api/public/telegram/webhook'
+      fullPath: '/api/public/telegram/webhook'
+      preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/telegram/setup': {
+      id: '/api/public/telegram/setup'
+      path: '/api/public/telegram/setup'
+      fullPath: '/api/public/telegram/setup'
+      preLoaderRoute: typeof ApiPublicTelegramSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -209,7 +250,19 @@ const rootRouteChildren: RootRouteChildren = {
   TestRoute: TestRoute,
   PSlugRoute: PSlugRoute,
   ApiV1ServiceRoute: ApiV1ServiceRoute,
+  ApiPublicTelegramSetupRoute: ApiPublicTelegramSetupRoute,
+  ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
