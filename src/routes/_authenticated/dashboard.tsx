@@ -89,6 +89,8 @@ function Dashboard() {
   });
 
   const [showCreate, setShowCreate] = useState(false);
+  const [tab, setTab] = useState<"keys" | "users">("keys");
+  const [showCreateUser, setShowCreateUser] = useState(false);
 
   const logout = async () => {
     await supabase.auth.signOut();
